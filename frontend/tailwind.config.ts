@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 // Standard shadcn/ui theme wiring: colors are driven by CSS variables defined
 // in app/globals.css, so light/dark themes are a variable swap, not a rebuild.
@@ -54,7 +55,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;
