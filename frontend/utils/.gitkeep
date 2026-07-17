@@ -1,0 +1,2 @@
+# Pure, framework-free helper functions (date formatting, etc.).
+# UI class-name merging lives in lib/utils.ts (shadcn convention).

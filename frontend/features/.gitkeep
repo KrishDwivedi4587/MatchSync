@@ -1,0 +1,5 @@
+# Feature-based architecture: each feature (subscriptions, calendars, history)
+# gets its own folder here containing its components, hooks, and query/service
+# code — colocated so a feature is self-contained and easy to reason about.
+# Example (added in later stages):
+#   features/subscriptions/{components,hooks,api.ts,types.ts}

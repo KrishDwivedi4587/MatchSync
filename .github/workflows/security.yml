@@ -1,0 +1,51 @@
+name: Security Scanning
+
+# Dependency vulnerability + secret scanning. Runs on PRs and weekly so new CVEs
+# in unchanged dependencies are still caught.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Backend dependency audit ---
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: pip-audit (backend)
+        run: |
+          pip install pip-audit
+          pip install -e "backend/.[dev,test]"
+          pip-audit || true   # non-blocking in the foundation stage; tighten later
+
+      # --- Frontend dependency audit ---
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: npm audit (frontend)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high || true
+
+  filesystem-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem + secret scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "0" # report-only for now; enforce (exit 1) in hardening stage

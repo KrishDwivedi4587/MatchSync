@@ -1,0 +1,42 @@
+# Pre-commit hooks run automatically before every commit, catching issues
+# locally so CI (and reviewers) never see avoidable failures.
+# Install once: `pip install pre-commit && pre-commit install`
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  # --- Generic hygiene ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key   # blocks committing secrets/keys
+
+  # --- Backend: Ruff (lint + import sort) and Black (format) ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        files: ^backend/
+
+  # --- Frontend: Prettier via local npm (avoids duplicate tool versions) ---
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier (frontend)
+        entry: bash -c 'cd frontend && npx prettier --write --ignore-unknown "$@"' --
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|md)$

@@ -1,0 +1,54 @@
+name: Backend CI
+
+# Lint, type-check, and test the backend on every PR/push touching it.
+on:
+  push:
+    branches: [main, develop]
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      # Real Postgres/Redis so integration-style tests have their dependencies.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: matchsync
+          POSTGRES_PASSWORD: matchsync
+          POSTGRES_DB: matchsync
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U matchsync"
+          --health-interval 5s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 5
+    env:
+      POSTGRES_HOST: localhost
+      REDIS_HOST: localhost
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -e ".[dev,test]"
+      - name: Ruff (lint + import order)
+        run: ruff check .
+      - name: Black (format check)
+        run: black --check .
+      - name: mypy (type check)
+        run: mypy app
+      - name: pytest (with coverage)
+        run: pytest

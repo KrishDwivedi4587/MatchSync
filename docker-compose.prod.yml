@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# Production overrides. Apply on top of the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Differences vs development:
+# - No source bind-mounts (images are immutable artifacts).
+# - No --reload; the API runs under multiple uvicorn workers.
+# - Debug docs disabled via ENVIRONMENT=production (see backend config).
+# - Secrets come from the environment / secrets manager, never a committed file.
+# ---------------------------------------------------------------------------
+
+services:
+  api:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    volumes: []
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      LOG_FORMAT: json
+    restart: unless-stopped
+
+  worker:
+    command: celery -A app.worker.celery_app worker --loglevel=INFO --concurrency=4
+    volumes: []
+    environment:
+      ENVIRONMENT: production
+      LOG_FORMAT: json
+    restart: unless-stopped
+
+  beat:
+    command: celery -A app.worker.celery_app beat --loglevel=INFO
+    volumes: []
+    environment:
+      ENVIRONMENT: production
+      LOG_FORMAT: json
+    restart: unless-stopped
+
+  frontend:
+    command: node server.js
+    volumes: []
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped
+
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped

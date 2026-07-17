@@ -1,0 +1,2 @@
+# Reusable, cross-feature React hooks (useSession, useDebounce, ...).
+# Feature-specific hooks live inside their feature folder instead.

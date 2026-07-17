@@ -1,0 +1,2 @@
+# Composed, domain-aware components (SubscriptionPicker, SyncHistoryTable, ...).
+# Distinct from components/ui (shadcn primitives) so library upgrades stay isolated.

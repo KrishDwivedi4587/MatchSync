@@ -1,0 +1,2 @@
+# Feature-agnostic API service functions built on lib/api/client.ts.
+# These wrap endpoints into typed calls consumed by TanStack Query hooks.

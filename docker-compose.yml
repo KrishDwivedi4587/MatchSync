@@ -1,0 +1,165 @@
+# ---------------------------------------------------------------------------
+# Development orchestration.
+#
+# Brings up the full stack: Postgres, Redis, the FastAPI API, a Celery worker,
+# the Celery Beat scheduler, and the Next.js frontend. Source is bind-mounted
+# for hot reload. Production uses docker-compose.prod.yml (no mounts, no reload).
+#
+# One backend image serves API + worker + beat; only the command differs.
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: matchsync
+      POSTGRES_PASSWORD: matchsync
+      POSTGRES_DB: matchsync
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matchsync"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - matchsync
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - matchsync
+
+  api:
+    build:
+      context: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override the file's localhost values to reach services by name.
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - matchsync
+
+  # Sync workers: consume the manual (high) and scheduled queues. Scale this
+  # service horizontally — workers are stateless and the Redis lock guarantees
+  # at-most-one active sync per subscription regardless of replica count.
+  worker:
+    build:
+      context: ./backend
+    command: >-
+      celery -A app.worker.celery_app worker
+      -Q sync.high,sync.default --concurrency=4 --loglevel=INFO
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    # SIGTERM lets Celery finish in-flight tasks before exiting (warm shutdown).
+    stop_grace_period: 60s
+    networks:
+      - matchsync
+
+  # Maintenance/ingest worker: a slow provider import can never starve a user's
+  # manual sync, because it consumes different queues.
+  worker-maintenance:
+    build:
+      context: ./backend
+    command: >-
+      celery -A app.worker.celery_app worker
+      -Q ingest,maintenance --concurrency=2 --loglevel=INFO
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 60s
+    networks:
+      - matchsync
+
+  beat:
+    build:
+      context: ./backend
+    command: celery -A app.worker.celery_app beat --loglevel=INFO
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - matchsync
+
+  frontend:
+    build:
+      context: ./frontend
+    command: npm run dev
+    environment:
+      # Browser calls the same-origin proxy; the Next.js server forwards to the
+      # backend service. Keeps auth cookies first-party.
+      NEXT_PUBLIC_API_BASE_URL: /api/v1
+      BACKEND_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+    networks:
+      - matchsync
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  matchsync:
+    driver: bridge

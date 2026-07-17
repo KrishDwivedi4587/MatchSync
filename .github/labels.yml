@@ -1,0 +1,34 @@
+# Canonical issue/PR labels. Apply with a label-sync action or the gh CLI.
+- name: "type: feature"
+  color: "0e8a16"
+  description: New functionality
+- name: "type: fix"
+  color: "d73a4a"
+  description: Bug fix
+- name: "type: chore"
+  color: "fef2c0"
+  description: Tooling, deps, refactors
+- name: "type: docs"
+  color: "0075ca"
+  description: Documentation only
+- name: "area: backend"
+  color: "1d76db"
+  description: FastAPI / Celery / DB
+- name: "area: frontend"
+  color: "5319e7"
+  description: Next.js UI
+- name: "area: infra"
+  color: "c5def5"
+  description: Docker / CI / deployment
+- name: "priority: high"
+  color: "b60205"
+  description: Address soon
+- name: "priority: low"
+  color: "c2e0c6"
+  description: Nice to have
+- name: "good first issue"
+  color: "7057ff"
+  description: Approachable for newcomers
+- name: "blocked"
+  color: "000000"
+  description: Waiting on something else
