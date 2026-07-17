@@ -10,6 +10,15 @@
 # ---------------------------------------------------------------------------
 
 services:
+  # The one-shot migration job keeps its baked-in image code (no bind mount)
+  # and production configuration. It exits after `alembic upgrade head`; the
+  # api/workers gate on its completion exactly as in the base file.
+  migrate:
+    volumes: []
+    environment:
+      ENVIRONMENT: production
+      LOG_FORMAT: json
+
   api:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     volumes: []
@@ -19,8 +28,20 @@ services:
       LOG_FORMAT: json
     restart: unless-stopped
 
+  # No `command:` override: the base file's command already carries the queue
+  # assignment (-Q sync.high,sync.default). A previous override restated the
+  # command WITHOUT -Q, which silently left the sync.high queue (manual syncs)
+  # with no consumer in production.
   worker:
-    command: celery -A app.worker.celery_app worker --loglevel=INFO --concurrency=4
+    volumes: []
+    environment:
+      ENVIRONMENT: production
+      LOG_FORMAT: json
+    restart: unless-stopped
+
+  # The ingest/maintenance worker was previously missing from this file
+  # entirely, so production ran it with a dev bind-mount and no restart policy.
+  worker-maintenance:
     volumes: []
     environment:
       ENVIRONMENT: production
@@ -36,6 +57,12 @@ services:
     restart: unless-stopped
 
   frontend:
+    build:
+      context: ./frontend
+      # The base file targets the "deps" stage for the dev toolchain; production
+      # must build the full multi-stage image whose final stage is the
+      # standalone runner that `node server.js` expects.
+      target: runner
     command: node server.js
     volumes: []
     environment:

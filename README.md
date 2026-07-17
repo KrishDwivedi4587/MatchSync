@@ -33,6 +33,9 @@ matchsync/
 
 ## Quick start (Docker — recommended)
 
+Prerequisites: Docker with Compose v2.6+ (on Windows: Docker Desktop with the
+WSL2 backend). Schema migrations run automatically on startup.
+
 ```bash
 git clone <repo-url> matchsync && cd matchsync
 cp backend/.env.example backend/.env

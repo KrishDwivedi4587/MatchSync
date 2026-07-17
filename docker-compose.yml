@@ -41,6 +41,29 @@ services:
     networks:
       - matchsync
 
+  # One-shot schema migration: runs `alembic upgrade head` against the healthy
+  # database, then exits. The API and workers gate on its successful completion,
+  # so a fresh `docker compose up` reaches a fully migrated schema with no
+  # manual step (this automates the "release step" in docs/deployment.md) and
+  # app processes can never race an unmigrated database.
+  migrate:
+    build:
+      context: ./backend
+    command: alembic upgrade head
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - matchsync
+
   api:
     build:
       context: ./backend
@@ -60,6 +83,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 15s
@@ -90,6 +115,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     # SIGTERM lets Celery finish in-flight tasks before exiting (warm shutdown).
     stop_grace_period: 60s
     networks:
@@ -115,6 +142,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     stop_grace_period: 60s
     networks:
       - matchsync
@@ -139,6 +168,11 @@ services:
   frontend:
     build:
       context: ./frontend
+      # Dev needs the full toolchain (next CLI, dev dependencies). The final
+      # "runner" stage ships only the pruned standalone output, whose
+      # node_modules would seed the anonymous volume below and break
+      # `npm run dev`. Production overrides this back to the runner stage.
+      target: deps
     command: npm run dev
     environment:
       # Browser calls the same-origin proxy; the Next.js server forwards to the

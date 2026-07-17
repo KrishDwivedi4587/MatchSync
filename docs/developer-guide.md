@@ -2,7 +2,10 @@
 
 ## Prerequisites
 
-- **Docker** + Docker Compose (recommended path)
+- **Docker** + Docker Compose v2.6+ (recommended path; the compose files use
+  `service_completed_successfully` dependency conditions). On Windows install
+  **Docker Desktop**, which requires the **WSL2** backend
+  (`wsl --install`, reboot, then Docker Desktop).
 - **Python 3.13** and **Node 20+** (for running services outside Docker)
 - **npm** (frontend package manager)
 
@@ -18,7 +21,9 @@ git clone <repo-url> matchsync && cd matchsync
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
 
-# 3. Run the whole stack
+# 3. Run the whole stack. The one-shot `migrate` service applies
+#    `alembic upgrade head` automatically; the API and workers wait for it,
+#    so no manual migration step is needed.
 docker compose up --build
 
 # 4. Verify the API is live
@@ -60,6 +65,17 @@ celery -A app.worker.celery_app beat --loglevel=INFO
 # Frontend
 cd frontend && npm install && npm run dev
 ```
+
+## Infrastructure troubleshooting
+
+| Symptom | Cause / fix |
+| --- | --- |
+| `env file ./backend/.env not found` on `docker compose up` | Step 2 of the checklist was skipped — `cp backend/.env.example backend/.env`. |
+| `migrate` exits non-zero and api/workers never start | Migration failure is a deliberate hard stop. Inspect with `docker compose logs migrate`; fix, then `docker compose up` again (Alembic re-applies only pending revisions). |
+| API healthcheck failing / `curl` errors in `docker compose ps` | The API waits for Postgres, Redis, **and** a completed `migrate`. Check `docker compose logs api` and the migrate logs first. |
+| Port already in use (3000/8000/5432/6379) | A host process owns the port — stop it or change the published port in `docker-compose.yml`. |
+| Backend refuses to start with a `SECRET_KEY` validation error | You set `ENVIRONMENT=staging|production` — supply a unique 32+ character `SECRET_KEY` (this fail-fast is intentional). |
+| Need a completely fresh database | `docker compose down -v` (deletes the named volumes), then `docker compose up --build`. Plain `down` preserves data. |
 
 ## Quality gates (run before pushing)
 

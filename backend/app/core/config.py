@@ -13,9 +13,9 @@ Design notes:
 """
 
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, SecretStr, computed_field
+from pydantic import Field, SecretStr, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "development", "staging", "production"]
@@ -205,6 +205,25 @@ class Settings(BaseSettings):
         if self.cookie_secure is not None:
             return self.cookie_secure
         return self.environment != "local"
+
+    @model_validator(mode="after")
+    def _require_production_secret(self) -> Self:
+        """Refuse to boot staging/production with the committed example secret.
+
+        docs/deployment.md declares SECRET_KEY required in production and this
+        module's docstring promises fail-fast on invalid configuration; enforce
+        both here so a misconfigured container exits with a clear error instead
+        of signing real JWTs (and deriving the token-encryption key) from a
+        public default. Local/dev keeps its ergonomic defaults.
+        """
+        if self.is_production:
+            secret = self.secret_key.get_secret_value()
+            if secret == "change-me-in-production" or len(secret) < 32:
+                raise ValueError(
+                    "SECRET_KEY must be set to a unique value of at least 32 "
+                    "characters when ENVIRONMENT is staging or production."
+                )
+        return self
 
 
 @lru_cache
