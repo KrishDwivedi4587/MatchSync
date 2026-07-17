@@ -24,7 +24,12 @@ from typing import Any
 import httpx
 
 from app.core.logging import get_logger
-from app.domain.ports.sports_provider import ProviderCapability, ProviderConfig, ProviderInfo
+from app.domain.ports.sports_provider import (
+    ProviderCapability,
+    ProviderConfig,
+    ProviderInfo,
+    Standing,
+)
 from app.exceptions.sports import (
     CapabilityNotSupportedError,
     MalformedResponseError,
@@ -155,7 +160,7 @@ class BaseHttpSportsProvider:
         return await self._breaker.call(_operation)
 
     # --- optional-capability default ---------------------------------------
-    async def get_standings(self, competition_id: str) -> list:
+    async def get_standings(self, competition_id: str) -> list[Standing]:
         """Default: unsupported. Providers with STANDINGS override this."""
         self.require_capability(ProviderCapability.STANDINGS)
         raise NotImplementedError  # pragma: no cover - guarded above

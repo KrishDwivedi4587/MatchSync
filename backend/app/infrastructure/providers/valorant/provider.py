@@ -19,6 +19,8 @@ model, just populated differently. Nothing downstream branches on sport.
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.domain.ports.sports_provider import (
     Competition,
     Fixture,
@@ -74,7 +76,7 @@ class ValorantProvider(BaseHttpSportsProvider):
             ProviderCapability.TEAM_LOGOS,
         }
     )  # no VENUES (online), no STANDINGS (bracket format)
-    supported_sports = (SPORT_KEY,)
+    supported_sports: tuple[str, ...] = (SPORT_KEY,)
 
     async def list_sports(self) -> list[Sport]:
         return [
@@ -87,7 +89,7 @@ class ValorantProvider(BaseHttpSportsProvider):
         ]
 
     # --- competitions (events/tournaments) ---------------------------------
-    def _to_competition(self, raw: dict) -> Competition:
+    def _to_competition(self, raw: dict[str, Any]) -> Competition:
         dates = raw.get("dates") or {}
         label = season_label_from_dates(dates.get("start"), dates.get("end"))
         season = (
@@ -131,7 +133,7 @@ class ValorantProvider(BaseHttpSportsProvider):
         return self._to_competition(data)
 
     # --- teams -------------------------------------------------------------
-    def _to_team(self, raw: dict) -> Team:
+    def _to_team(self, raw: dict[str, Any]) -> Team:
         return Team(
             external_id=normalize_external_id(require(raw, "id", context="team")),
             name=normalize_name(optional(raw, "name", "title"), field="team name"),
@@ -155,7 +157,7 @@ class ValorantProvider(BaseHttpSportsProvider):
         return self._to_team(data)
 
     # --- fixtures ----------------------------------------------------------
-    def _to_fixture(self, competition_id: str, raw: dict) -> Fixture:
+    def _to_fixture(self, competition_id: str, raw: dict[str, Any]) -> Fixture:
         # Esports matches have no home/away — both rosters are NEUTRAL.
         rosters = as_list(raw.get("teams"), "teams")
         participants = tuple(

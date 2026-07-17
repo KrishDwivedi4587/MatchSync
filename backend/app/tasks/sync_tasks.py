@@ -12,15 +12,17 @@ the task only knows how to reschedule a message. No synchronization logic here.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from celery import Task
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.services.job_service import JobService
 from app.application.services.worker_service import JobOutcome, WorkerService
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.domain.orchestration.models import JobPriority, JobState, JobType
+from app.domain.orchestration.models import Job, JobPriority, JobState, JobType
 from app.domain.orchestration.retry import RetryPolicy
 from app.domain.value_objects.enums import SyncTrigger
 from app.persistence.repositories.subscription import SubscriptionRepository
@@ -54,23 +56,25 @@ def build_worker_service() -> WorkerService:
     store = job_store()
     redis = worker_redis()
 
-    async def _with_session(fn, job):
+    async def _with_session(
+        fn: Callable[[AsyncSession, Job], Awaitable[dict[str, Any]]], job: Job
+    ) -> dict[str, Any]:
         async with async_session_factory() as session:
             return await fn(session, job)
 
-    async def _sync_subscription(job):
+    async def _sync_subscription(job: Job) -> dict[str, Any]:
         return await _with_session(handlers.handle_sync_subscription, job)
 
-    async def _sync_user(job):
+    async def _sync_user(job: Job) -> dict[str, Any]:
         return await _with_session(handlers.handle_sync_user, job)
 
-    async def _reconcile(job):
+    async def _reconcile(job: Job) -> dict[str, Any]:
         return await _with_session(handlers.handle_reconcile, job)
 
-    async def _metadata(job):
+    async def _metadata(job: Job) -> dict[str, Any]:
         return await _with_session(handlers.handle_metadata_refresh, job)
 
-    async def _fixture_import(job):
+    async def _fixture_import(job: Job) -> dict[str, Any]:
         async with async_session_factory() as session:
             return await handlers.handle_fixture_import(session, job, redis)
 
@@ -88,7 +92,7 @@ def build_worker_service() -> WorkerService:
     )
 
 
-def _execute(task: Task, job_id: str) -> dict[str, Any]:
+def _execute(task: Task[..., dict[str, Any]], job_id: str) -> dict[str, Any]:
     """Shared body: run the job, then honour its retry decision."""
     worker = build_worker_service()
     outcome: JobOutcome = run_async(worker.run(uuid.UUID(job_id)))
@@ -107,23 +111,23 @@ def _execute(task: Task, job_id: str) -> dict[str, Any]:
 
 
 @celery_app.task(bind=True, name="orchestration.sync_subscription", acks_late=True)
-def sync_subscription(self: Task, job_id: str) -> dict[str, Any]:
+def sync_subscription(self: Task[[str], dict[str, Any]], job_id: str) -> dict[str, Any]:
     return _execute(self, job_id)
 
 
 @celery_app.task(bind=True, name="orchestration.sync_subscription_priority", acks_late=True)
-def sync_subscription_priority(self: Task, job_id: str) -> dict[str, Any]:
+def sync_subscription_priority(self: Task[[str], dict[str, Any]], job_id: str) -> dict[str, Any]:
     """Same body, separate queue: manual syncs never wait behind scheduled ones."""
     return _execute(self, job_id)
 
 
 @celery_app.task(bind=True, name="orchestration.sync_user", acks_late=True)
-def sync_user(self: Task, job_id: str) -> dict[str, Any]:
+def sync_user(self: Task[[str], dict[str, Any]], job_id: str) -> dict[str, Any]:
     return _execute(self, job_id)
 
 
 @celery_app.task(bind=True, name="orchestration.reconcile", acks_late=True)
-def reconcile(self: Task, job_id: str) -> dict[str, Any]:
+def reconcile(self: Task[[str], dict[str, Any]], job_id: str) -> dict[str, Any]:
     return _execute(self, job_id)
 
 

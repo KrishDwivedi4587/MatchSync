@@ -20,7 +20,9 @@ from app.core.config import get_settings
 from app.utils.correlation import request_id_var
 
 
-def _add_request_id(_: object, __: str, event_dict: dict) -> dict:
+def _add_request_id(
+    _: structlog.typing.WrappedLogger, __: str, event_dict: structlog.typing.EventDict
+) -> structlog.typing.EventDict:
     """structlog processor: attach the current request/correlation id."""
     request_id = request_id_var.get()
     if request_id is not None:
@@ -71,6 +73,12 @@ def configure_logging() -> None:
         logging.getLogger(noisy).propagate = True
 
 
-def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
-    """Return a bound structlog logger. Prefer this over ``logging.getLogger``."""
-    return structlog.get_logger(name)
+def get_logger(name: str | None = None) -> structlog.typing.FilteringBoundLogger:
+    """Return a bound structlog logger. Prefer this over ``logging.getLogger``.
+
+    The declared type matches what ``configure_logging`` actually installs
+    (``make_filtering_bound_logger``); ``structlog.get_logger`` itself returns
+    ``Any`` by design, so we pin it via the annotated local.
+    """
+    logger: structlog.typing.FilteringBoundLogger = structlog.get_logger(name)
+    return logger

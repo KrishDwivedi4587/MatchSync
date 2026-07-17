@@ -8,7 +8,7 @@ prefork workers (one task at a time per process).
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Coroutine
+from collections.abc import Coroutine
 from typing import Any, TypeVar
 
 import redis.asyncio as aioredis
@@ -35,9 +35,13 @@ TASK_CLEANUP = "orchestration.cleanup"
 TASK_HEALTH_CHECK = "orchestration.health_check"
 
 
-def run_async(coro: Coroutine[Any, Any, T] | Awaitable[T]) -> T:
-    """Run a coroutine to completion from a synchronous Celery task."""
-    return asyncio.run(coro)  # type: ignore[arg-type]
+def run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """Run a coroutine to completion from a synchronous Celery task.
+
+    Every caller passes the result of calling an ``async def`` directly, which
+    is always a coroutine — exactly what ``asyncio.run`` requires.
+    """
+    return asyncio.run(coro)
 
 
 # --- Redis singletons for the worker process --------------------------------
@@ -47,7 +51,9 @@ _redis: aioredis.Redis | None = None
 def worker_redis() -> aioredis.Redis:
     global _redis
     if _redis is None:
-        _redis = aioredis.from_url(
+        # redis-py 6.4 leaves ``from_url`` unannotated; it is the documented
+        # constructor, so the untyped call is unavoidable here.
+        _redis = aioredis.from_url(  # type: ignore[no-untyped-call]
             get_settings().redis_url, encoding="utf-8", decode_responses=True
         )
     return _redis

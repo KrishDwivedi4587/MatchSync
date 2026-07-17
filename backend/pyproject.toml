@@ -31,7 +31,10 @@ dev = [
     "ruff>=0.7.0",
     "black>=24.10.0",
     "mypy>=1.13.0",
-    "types-redis>=4.6.0",
+    # Celery ships no py.typed marker; these stubs type the app/task decorators.
+    # (types-redis was removed: it targets redis 4.x and would shadow the inline
+    # annotations redis>=5 ships itself.)
+    "celery-types>=0.26.0",
     "pre-commit>=4.0.0",
 ]
 test = [
@@ -65,9 +68,10 @@ src = ["app", "tests"]
 select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "TID", "RUF"]
 ignore = [
     "E501",  # line length is enforced by Black, not the linter
-    # PEP 695 generic syntax (class Repo[T]) parses only on Python >= 3.12; the
-    # local dev/test toolchain still runs 3.11. Adopt when the toolchain is
-    # uniformly on 3.13, then remove these two ignores.
+    # PEP 695 syntax (class Repo[T], `type X = ...`) parses only on Python
+    # >= 3.12; the local dev/test toolchain still runs 3.11. Adopt when the
+    # toolchain is uniformly on 3.13, then remove these three ignores.
+    "UP040",
     "UP046",
     "UP047",
 ]

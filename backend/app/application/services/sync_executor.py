@@ -22,6 +22,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TypeVar
 
 from app.application.services.calendar_service import CalendarService
 from app.core.logging import get_logger
@@ -140,7 +141,9 @@ class SyncExecutor:
             if a.fixture_id in bodies
         ]
         for chunk in _chunks(actions, self._batch_size):
-            events = [bodies[a.fixture_id] for a in chunk]  # type: ignore[index]
+            # fixture_id is non-None by construction (actions were filtered on
+            # membership in `bodies`); the walrus narrows without filtering.
+            events = [bodies[fid] for a in chunk if (fid := a.fixture_id) is not None]
             results = await self._calendar.batch_create_events(user, calendar_id, events)
             outcome.api_calls += 1
             await self._absorb_creates(chunk, events, results, user, calendar_id, outcome)
@@ -244,7 +247,13 @@ class SyncExecutor:
         outcome: ExecutionOutcome,
     ) -> None:
         for chunk in _chunks(actions, self._batch_size):
-            items = [(a.external_event_id, bodies[a.fixture_id]) for a in chunk]  # type: ignore[index]
+            # Both ids are non-None by construction (see the action filters);
+            # the walruses narrow without filtering.
+            items = [
+                (eid, bodies[fid])
+                for a in chunk
+                if (eid := a.external_event_id) is not None and (fid := a.fixture_id) is not None
+            ]
             results = await self._calendar.batch_update_events(user, calendar_id, items)
             outcome.api_calls += 1
             by_index = {r.index: r for r in results}
@@ -291,8 +300,9 @@ class SyncExecutor:
     ) -> None:
         actions = [a for a in plan.of_type(SyncActionType.DELETE) if a.external_event_id]
         for chunk in _chunks(actions, self._batch_size):
-            event_ids = [a.external_event_id for a in chunk]
-            results = await self._calendar.batch_delete_events(user, calendar_id, event_ids)  # type: ignore[arg-type]
+            # external_event_id is non-None by construction (filtered above).
+            event_ids = [eid for a in chunk if (eid := a.external_event_id) is not None]
+            results = await self._calendar.batch_delete_events(user, calendar_id, event_ids)
             outcome.api_calls += 1
             by_index = {r.index: r for r in results}
 
@@ -309,12 +319,15 @@ class SyncExecutor:
                 )
 
 
-def _chunks(items: list, size: int) -> list[list]:
+_T = TypeVar("_T")
+
+
+def _chunks(items: list[_T], size: int) -> list[list[_T]]:
     return [items[i : i + size] for i in range(0, len(items), size)]
 
 
 def _is_conflict(code: str | None) -> bool:
-    return bool(code) and code.lower() in {
+    return code is not None and code.lower() in {
         "duplicate",
         "conflict",
         "409",
@@ -323,7 +336,7 @@ def _is_conflict(code: str | None) -> bool:
 
 
 def _is_not_found(code: str | None) -> bool:
-    return bool(code) and code.lower() in {"notfound", "not_found", "404", "410", "deleted"}
+    return code is not None and code.lower() in {"notfound", "not_found", "404", "410", "deleted"}
 
 
 def utcnow() -> datetime:

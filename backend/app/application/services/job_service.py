@@ -7,6 +7,7 @@ Celery or Redis broker.
 
 from __future__ import annotations
 
+import builtins
 import uuid
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -107,7 +108,9 @@ class JobService:
     ) -> list[Job]:
         return await self._store.list(user_id=user_id, states=states, types=types, limit=limit)
 
-    async def dead_letter_queue(self, *, limit: int = 50) -> list[Job]:
+    # ``builtins.list``: the ``list`` method above shadows the builtin in
+    # this class body's later def-signature annotations.
+    async def dead_letter_queue(self, *, limit: int = 50) -> builtins.list[Job]:
         return await self._store.list_dead_letter(limit=limit)
 
     # --- control ----------------------------------------------------------
@@ -151,7 +154,7 @@ class JobService:
         return job
 
     # --- worker-side helpers ----------------------------------------------
-    async def mark_stuck_as_failed(self, *, older_than_seconds: int) -> list[Job]:
+    async def mark_stuck_as_failed(self, *, older_than_seconds: int) -> builtins.list[Job]:
         """Reap RUNNING jobs whose worker died mid-flight.
 
         The broker will redeliver the message (``task_reject_on_worker_lost``), so

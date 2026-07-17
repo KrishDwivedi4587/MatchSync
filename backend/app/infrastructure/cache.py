@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
 import redis.asyncio as aioredis
@@ -77,7 +78,10 @@ class RedisCache:
         self._c = client
 
     async def get(self, key: str) -> str | None:
-        return await self._c.get(key)
+        # decode_responses=True guarantees str; the isinstance check narrows
+        # redis-py's Any without a cast.
+        value = await self._c.get(key)
+        return value if isinstance(value, str) else None
 
     async def set(self, key: str, value: str, ttl_seconds: int) -> None:
         await self._c.set(key, value, ex=ttl_seconds)
@@ -98,7 +102,7 @@ async def cached_json(
     cache: Cache,
     key: str,
     ttl_seconds: int,
-    loader,
+    loader: Callable[[], Awaitable[Any]],
     *,
     label: str = "",
 ) -> Any:

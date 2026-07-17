@@ -29,6 +29,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.services.sports_service import SportsService
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.domain.fixtures.deduplication import (
@@ -63,6 +64,7 @@ from app.domain.value_objects.enums import (
 )
 from app.domain.value_objects.time_window import TimeWindow
 from app.exceptions.base import AppError
+from app.infrastructure.providers.registry import SportsProviderRegistry
 from app.persistence.models.catalog import Competition, Sport
 from app.persistence.models.fixture import Fixture as FixtureModel
 from app.persistence.models.ingestion import ImportRun
@@ -96,8 +98,8 @@ class FixtureIngestionService:
     def __init__(
         self,
         session: AsyncSession,
-        sports_service,
-        registry,
+        sports_service: SportsService,
+        registry: SportsProviderRegistry,
         sports: SportRepository,
         competitions: CompetitionRepository,
         teams: TeamRepository,
@@ -282,11 +284,11 @@ class FixtureIngestionService:
 
         # 4. Import policy: past/future windows.
         in_window = []
-        for fixture in valid:
-            if fixture.start < window.start or fixture.start >= window.end:
+        for dto in valid:
+            if dto.start < window.start or dto.start >= window.end:
                 stats.skipped_out_of_window += 1
                 continue
-            in_window.append(fixture)
+            in_window.append(dto)
 
         # 5. Resolve participant teams in one round-trip.
         team_map = await self._teams.map_provider_ids(
@@ -349,7 +351,9 @@ class FixtureIngestionService:
 
         for external_id, candidate in kept:
             data = prepared[external_id]
-            fixture: FixtureDTO = data["dto"]
+            # ``fixture`` keeps its FixtureDTO type from the step-6 loop above;
+            # re-annotating an established local is a mypy no-redef error.
+            fixture = data["dto"]
             new_state = self._state_from_dto(competition.id, fixture, data["home"], data["away"])
 
             match = self._matcher.match(candidate, index)

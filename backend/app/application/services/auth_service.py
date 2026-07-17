@@ -103,7 +103,10 @@ class AuthService:
     def _session_id_from(self, access_token: str | None, refresh_token: str | None) -> str | None:
         if access_token:
             try:
-                return self._jwt.decode_access_token(access_token)["sid"]
+                # ``sid`` is minted by us and always a string; the isinstance
+                # check narrows the decoded-JWT ``Any`` without a cast.
+                sid = self._jwt.decode_access_token(access_token)["sid"]
+                return sid if isinstance(sid, str) else None
             except AuthenticationError:
                 pass  # expired/invalid access token — fall back to refresh
         if refresh_token:

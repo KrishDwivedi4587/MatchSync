@@ -153,7 +153,7 @@ def _dispose_db_pool(**_: object) -> None:
 
 
 @worker_ready.connect
-def _register_worker(sender=None, **_: object) -> None:
+def _register_worker(sender: object | None = None, **_: object) -> None:
     from app.tasks.base import register_worker_heartbeat
 
     name = getattr(sender, "hostname", "unknown")
@@ -162,7 +162,7 @@ def _register_worker(sender=None, **_: object) -> None:
 
 
 @worker_shutdown.connect
-def _deregister_worker(sender=None, **_: object) -> None:
+def _deregister_worker(sender: object | None = None, **_: object) -> None:
     """Graceful shutdown removes the heartbeat immediately.
 
     A crash is covered by the heartbeat key's TTL, so a dead worker always

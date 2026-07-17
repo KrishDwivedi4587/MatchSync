@@ -78,7 +78,7 @@ class BasketballProvider(BaseHttpSportsProvider):
             ProviderCapability.STATISTICS,
         }
     )  # deliberately no STANDINGS / VENUES / SEASONS
-    supported_sports = (SPORT_KEY,)
+    supported_sports: tuple[str, ...] = (SPORT_KEY,)
 
     async def list_sports(self) -> list[Sport]:
         return [
@@ -88,8 +88,8 @@ class BasketballProvider(BaseHttpSportsProvider):
         ]
 
     # --- cursor pagination (vendor-specific; hidden from callers) -----------
-    async def _paginate(self, path: str, params: dict[str, Any]) -> list[dict]:
-        items: list[dict] = []
+    async def _paginate(self, path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         cursor: Any = None
         for _ in range(_MAX_PAGES):
             query = {**params, "per_page": _PAGE_SIZE}
@@ -128,7 +128,7 @@ class BasketballProvider(BaseHttpSportsProvider):
         return self._nba()
 
     # --- teams -------------------------------------------------------------
-    def _to_team(self, raw: dict) -> Team:
+    def _to_team(self, raw: dict[str, Any]) -> Team:
         return Team(
             external_id=normalize_external_id(require(raw, "id", context="team")),
             name=normalize_name(optional(raw, "full_name", "name"), field="team name"),
@@ -152,7 +152,7 @@ class BasketballProvider(BaseHttpSportsProvider):
         return self._to_team(data)
 
     # --- fixtures ----------------------------------------------------------
-    def _to_fixture(self, raw: dict) -> Fixture:
+    def _to_fixture(self, raw: dict[str, Any]) -> Fixture:
         home = raw.get("home_team") or {}
         away = raw.get("visitor_team") or {}  # vendor says "visitor", we say "away"
         participants = tuple(

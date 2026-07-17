@@ -64,7 +64,9 @@ class GoogleCalendarProvider:
     key = "google"
     # Least privilege: enumerate calendars + manage events. Deliberately NOT the
     # full `auth/calendar` scope, which also permits creating/deleting calendars.
-    required_scopes = (
+    # The explicit annotation matches the port's ``tuple[str, ...]`` — without
+    # it the inferred ``tuple[str, str]`` fails the (invariant) protocol check.
+    required_scopes: tuple[str, ...] = (
         "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
         "https://www.googleapis.com/auth/calendar.events",
     )
@@ -94,8 +96,8 @@ class GoogleCalendarProvider:
             raise google_errors.map_error(response)
         return response
 
-    async def _paginate(self, url: str, params: dict[str, Any]) -> list[dict]:
-        items: list[dict] = []
+    async def _paginate(self, url: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         page_token: str | None = None
         for _ in range(_MAX_PAGES):
             query = {**params, "maxResults": _PAGE_SIZE}
@@ -110,7 +112,7 @@ class GoogleCalendarProvider:
 
     # --- serialization -----------------------------------------------------
     @staticmethod
-    def _calendar_from_json(item: dict) -> CalendarInfo:
+    def _calendar_from_json(item: dict[str, Any]) -> CalendarInfo:
         try:
             role = CalendarAccessRole(item.get("accessRole", "none"))
         except ValueError:
@@ -151,7 +153,7 @@ class GoogleCalendarProvider:
         return body
 
     @staticmethod
-    def _event_from_json(calendar_id: str, item: dict) -> CalendarEventRecord:
+    def _event_from_json(calendar_id: str, item: dict[str, Any]) -> CalendarEventRecord:
         start_raw = item.get("start", {})
         end_raw = item.get("end", {})
         all_day = "date" in start_raw

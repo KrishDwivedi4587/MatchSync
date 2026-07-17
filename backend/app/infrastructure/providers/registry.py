@@ -22,7 +22,9 @@ point group without living in this repository.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from importlib.metadata import entry_points
+from typing import TypeAlias, TypedDict, Unpack
 
 from app.core.config import Settings
 from app.core.logging import get_logger
@@ -34,6 +36,7 @@ from app.domain.ports.sports_provider import (
 )
 from app.exceptions.sports import ProviderNotFoundError
 from app.infrastructure.http.circuit_breaker import CircuitBreaker
+from app.infrastructure.http.resilient import ResilientHttpClient
 from app.infrastructure.providers.base import build_http_client
 from app.infrastructure.providers.basketball import BasketballProvider
 from app.infrastructure.providers.football import FootballProvider
@@ -42,6 +45,11 @@ from app.infrastructure.providers.valorant import ValorantProvider
 logger = get_logger(__name__)
 
 ENTRY_POINT_GROUP = "matchsync.sports_providers"
+
+# A provider constructor: config + its own HTTP client + its own breaker.
+_ProviderBuilder: TypeAlias = Callable[
+    [ProviderConfig, ResilientHttpClient, CircuitBreaker], SportsProvider
+]
 
 
 class SportsProviderRegistry:
@@ -113,8 +121,23 @@ class SportsProviderRegistry:
 # --------------------------------------------------------------------------
 # Factory
 # --------------------------------------------------------------------------
+class _ConfigOverrides(TypedDict, total=False):
+    """Per-provider deviations from the ``ProviderConfig`` defaults."""
+
+    auth_header: str
+    auth_scheme: str
+    timeout_seconds: float
+    max_attempts: int
+    extra_headers: dict[str, str]
+
+
 def _config(
-    settings: Settings, key: str, name: str, base_url: str, api_key: str, **overrides
+    settings: Settings,
+    key: str,
+    name: str,
+    base_url: str,
+    api_key: str,
+    **overrides: Unpack[_ConfigOverrides],
 ) -> ProviderConfig:
     return ProviderConfig(
         key=key,
@@ -135,7 +158,10 @@ def build_registry(settings: Settings) -> SportsProviderRegistry:
     """
     registry = SportsProviderRegistry()
 
-    specs = [
+    # Each spec pairs a provider constructor with its config. The explicit
+    # annotation keeps the heterogeneous class list from collapsing to the
+    # abstract base (which deliberately does not satisfy the port protocol).
+    specs: list[tuple[_ProviderBuilder, ProviderConfig]] = [
         (
             FootballProvider,
             _config(

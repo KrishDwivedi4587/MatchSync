@@ -13,6 +13,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -20,6 +21,7 @@ from app.domain.orchestration.models import Job
 from app.domain.sync.models import SyncMode
 from app.domain.value_objects.enums import SyncTrigger
 from app.exceptions.base import NotFoundError
+from app.persistence.models.user import User
 from app.persistence.repositories.user import UserRepository
 from app.tasks.container import (
     build_ingestion_service,
@@ -35,7 +37,11 @@ class JobOwnerMissingError(NotFoundError):
     message = "The job's user no longer exists."
 
 
-async def _load_user(session: AsyncSession, user_id: uuid.UUID):
+async def _load_user(session: AsyncSession, user_id: uuid.UUID | None) -> User:
+    # ``user_id`` is None only for system jobs, which never call this; the
+    # guard makes that contract explicit instead of hiding it behind an ignore.
+    if user_id is None:
+        raise JobOwnerMissingError()
     user = await UserRepository(session).get(user_id)
     if user is None or user.deleted_at is not None:
         raise JobOwnerMissingError()
@@ -48,7 +54,7 @@ async def handle_sync_subscription(session: AsyncSession, job: Job) -> dict[str,
     mode = SyncMode(job.payload.get("mode", SyncMode.INCREMENTAL.value))
     trigger = SyncTrigger(job.payload.get("trigger", SyncTrigger.SCHEDULED.value))
 
-    user = await _load_user(session, job.user_id)  # type: ignore[arg-type]
+    user = await _load_user(session, job.user_id)
     engine = build_sync_service(session)
     report = await engine.synchronize(user, subscription_id, mode=mode, trigger=trigger)
 
@@ -70,7 +76,7 @@ async def handle_reconcile(session: AsyncSession, job: Job) -> dict[str, Any]:
 
 
 async def handle_sync_user(session: AsyncSession, job: Job) -> dict[str, Any]:
-    user = await _load_user(session, job.user_id)  # type: ignore[arg-type]
+    user = await _load_user(session, job.user_id)
     mode = SyncMode(job.payload.get("mode", SyncMode.INCREMENTAL.value))
     engine = build_sync_service(session)
     reports = await engine.synchronize_user(user, mode=mode, trigger=SyncTrigger.SCHEDULED)
@@ -100,7 +106,9 @@ async def handle_metadata_refresh(session: AsyncSession, job: Job) -> dict[str, 
     }
 
 
-async def handle_fixture_import(session: AsyncSession, job: Job, redis) -> dict[str, Any]:
+async def handle_fixture_import(
+    session: AsyncSession, job: Job, redis: aioredis.Redis
+) -> dict[str, Any]:
     service = build_ingestion_service(session, redis)
     sport = job.payload.get("sport")
     if sport:

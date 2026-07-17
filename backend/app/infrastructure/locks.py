@@ -88,9 +88,12 @@ class LockManager:
                     await pipe.watch(handle.key)
                     current = await pipe.get(handle.key)
                     if current != handle.token:
-                        await pipe.unwatch()
+                        # redis-py 6.4 leaves Pipeline.unwatch/multi unannotated
+                        # (unlike watch/execute), so these two calls cannot be
+                        # typed without forking the stubs.
+                        await pipe.unwatch()  # type: ignore[no-untyped-call]
                         return False  # expired, or owned by someone else now
-                    pipe.multi()
+                    pipe.multi()  # type: ignore[no-untyped-call]
                     if renew_ms is None:
                         pipe.delete(handle.key)
                     else:
@@ -113,7 +116,7 @@ class LockManager:
         return released
 
     async def is_held(self, name: str) -> bool:
-        return await self._redis.exists(f"{LOCK_PREFIX}{name}") == 1
+        return bool(await self._redis.exists(f"{LOCK_PREFIX}{name}") == 1)
 
     def guard(self, name: str, *, ttl_seconds: int | None = None) -> LockGuard:
         return LockGuard(self, name, ttl_seconds or self._ttl)
@@ -136,7 +139,7 @@ class LockGuard:
         self._name = name
         self._ttl = ttl_seconds
         self._handle: LockHandle | None = None
-        self._renewer: asyncio.Task | None = None
+        self._renewer: asyncio.Task[None] | None = None
 
     @property
     def handle(self) -> LockHandle | None:

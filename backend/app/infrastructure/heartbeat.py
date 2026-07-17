@@ -19,6 +19,7 @@ from typing import Any
 import redis.asyncio as aioredis
 
 from app.domain.orchestration.models import Queue
+from app.infrastructure.redis import resolve_response
 
 WORKER_KEY = "orchestration:worker:{name}"
 WORKER_PATTERN = "orchestration:worker:*"
@@ -61,7 +62,7 @@ class HeartbeatRegistry:
         """Backlog per queue. With the Redis broker, a queue is a list."""
         depths: dict[str, int] = {}
         for queue in Queue:
-            depths[queue.value] = int(await self._redis.llen(queue.value) or 0)
+            depths[queue.value] = int(await resolve_response(self._redis.llen(queue.value)) or 0)
         return depths
 
     async def redis_healthy(self) -> bool:

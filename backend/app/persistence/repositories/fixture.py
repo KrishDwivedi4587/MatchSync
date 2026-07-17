@@ -21,7 +21,7 @@ class FixtureRepository(BaseRepository[Fixture]):
 
     async def get_by_identity_key(self, identity_key: str) -> Fixture | None:
         stmt = select(Fixture).where(Fixture.identity_key == identity_key)
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def get_by_provider_id(
         self, competition_id: uuid.UUID, provider_fixture_id: str
@@ -30,7 +30,7 @@ class FixtureRepository(BaseRepository[Fixture]):
             Fixture.competition_id == competition_id,
             Fixture.provider_fixture_id == provider_fixture_id,
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_for_competition_in_window(
         self,
@@ -88,7 +88,7 @@ class FixtureRepository(BaseRepository[Fixture]):
         start_to: datetime | None,
         query: str | None,
         include_deleted: bool,
-    ) -> Select:
+    ) -> Select[tuple[Fixture]]:
         stmt = select(Fixture).join(Competition, Fixture.competition_id == Competition.id)
 
         if not include_deleted:
@@ -158,4 +158,4 @@ class FixtureRepository(BaseRepository[Fixture]):
                 selectinload(Fixture.away_team),
             )
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()

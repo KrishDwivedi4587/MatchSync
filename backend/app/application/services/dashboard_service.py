@@ -15,6 +15,7 @@ from app.application.services.orchestration_service import OrchestrationService
 from app.core.logging import get_logger
 from app.domain.value_objects.enums import SubscriptionStatus
 from app.exceptions.calendar import CalendarReauthRequiredError
+from app.persistence.models.subscription import Subscription
 from app.persistence.models.user import User
 from app.persistence.repositories.application import ApplicationSubscriptionRepository
 from app.persistence.repositories.sync_engine import SyncRunRepository
@@ -106,7 +107,7 @@ class DashboardService:
         }
 
 
-def _subscription_card(subscription) -> dict[str, Any]:
+def _subscription_card(subscription: Subscription) -> dict[str, Any]:
     scope = subscription.scope_type.value
     if subscription.competition is not None:
         label = subscription.competition.name

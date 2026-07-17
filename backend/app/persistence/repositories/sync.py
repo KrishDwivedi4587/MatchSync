@@ -35,4 +35,4 @@ class SyncRepository(BaseRepository[SyncHistory]):
             .where(SyncHistory.id == run_id)
             .options(selectinload(SyncHistory.operations))
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()

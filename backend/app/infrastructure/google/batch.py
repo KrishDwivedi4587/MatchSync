@@ -14,22 +14,25 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from typing import Any, TypeVar
 
 MAX_BATCH_SIZE = 50
+
+_T = TypeVar("_T")
 
 
 @dataclass(frozen=True)
 class BatchRequest:
     method: str
     path: str  # relative, e.g. "/calendar/v3/calendars/x/events"
-    body: dict | None = None
+    body: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
 class BatchResponse:
     index: int
     status_code: int
-    body: dict | None = None
+    body: dict[str, Any] | None = None
     headers: dict[str, str] = field(default_factory=dict)
 
 
@@ -95,7 +98,7 @@ def parse_batch_response(content: bytes, content_type: str) -> list[BatchRespons
         id_match = _CONTENT_ID_RE.search(part)
         index = int(id_match.group(1)) if id_match else position
 
-        body: dict | None = None
+        body: dict[str, Any] | None = None
         # The JSON payload (if any) follows the last blank line.
         blank = part.find("\r\n\r\n", status_match.end())
         if blank != -1:
@@ -114,6 +117,6 @@ def parse_batch_response(content: bytes, content_type: str) -> list[BatchRespons
     return responses
 
 
-def chunk(items: list, size: int = MAX_BATCH_SIZE) -> list[list]:
+def chunk(items: list[_T], size: int = MAX_BATCH_SIZE) -> list[list[_T]]:
     """Split a list into provider-safe batch chunks."""
     return [items[i : i + size] for i in range(0, len(items), size)]

@@ -19,7 +19,7 @@ class UserRepository(BaseRepository[User]):
 
     async def get_by_email(self, email: str) -> User | None:
         stmt = select(User).where(User.email == email.lower(), User.deleted_at.is_(None))
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
 
 class GoogleAccountRepository(BaseRepository[GoogleAccount]):
@@ -30,7 +30,7 @@ class GoogleAccountRepository(BaseRepository[GoogleAccount]):
             GoogleAccount.provider == provider,
             GoogleAccount.provider_subject == provider_subject,
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_for_user(self, user_id: uuid.UUID) -> Sequence[GoogleAccount]:
         stmt = select(GoogleAccount).where(
@@ -46,7 +46,7 @@ class GoogleAccountRepository(BaseRepository[GoogleAccount]):
             .where(GoogleAccount.id == account_id)
             .options(selectinload(GoogleAccount.token))
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
 
 class OAuthTokenRepository(BaseRepository[OAuthToken]):
@@ -54,7 +54,7 @@ class OAuthTokenRepository(BaseRepository[OAuthToken]):
 
     async def get_by_account_id(self, account_id: uuid.UUID) -> OAuthToken | None:
         stmt = select(OAuthToken).where(OAuthToken.google_account_id == account_id)
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
 
 class CalendarRepository(BaseRepository[Calendar]):
@@ -68,7 +68,7 @@ class CalendarRepository(BaseRepository[Calendar]):
             Calendar.google_account_id == account_id,
             Calendar.external_calendar_id == external_calendar_id,
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_for_user(self, user_id: uuid.UUID) -> Sequence[Calendar]:
         """All non-deleted calendars across every account linked to the user."""

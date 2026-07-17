@@ -263,6 +263,10 @@ class SportsProvider(Protocol):
     name: str
     version: str
     capabilities: frozenset[ProviderCapability]
+    supported_sports: tuple[str, ...]
+
+    @property
+    def config(self) -> ProviderConfig: ...
 
     def provider_info(self) -> ProviderInfo: ...
 

@@ -11,10 +11,17 @@ come from ``exceptions/provider.py`` and are re-exported for convenience.
 from __future__ import annotations
 
 from app.exceptions.base import AppError, NotFoundError, ValidationAppError
-from app.exceptions.provider import (  # noqa: F401  (re-exported)
-    ProviderError,
-    ProviderUnavailableError,
-    RateLimitError,
+
+# The import-as-name aliases mark these as *explicit* re-exports for both mypy
+# (strict no-implicit-reexport) and ruff.
+from app.exceptions.provider import (
+    ProviderError as ProviderError,
+)
+from app.exceptions.provider import (
+    ProviderUnavailableError as ProviderUnavailableError,
+)
+from app.exceptions.provider import (
+    RateLimitError as RateLimitError,
 )
 
 

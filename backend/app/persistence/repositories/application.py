@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.domain.value_objects.enums import SubscriptionType
 from app.persistence.models.subscription import Subscription
 from app.persistence.repositories.base import BaseRepository
 
@@ -40,7 +41,7 @@ class ApplicationSubscriptionRepository(BaseRepository[Subscription]):
         self,
         user_id: uuid.UUID,
         calendar_id: uuid.UUID,
-        scope_type,
+        scope_type: SubscriptionType,
         competition_id: uuid.UUID | None,
         team_id: uuid.UUID | None,
     ) -> Subscription | None:
@@ -67,7 +68,7 @@ class ApplicationSubscriptionRepository(BaseRepository[Subscription]):
             ),
             Subscription.deleted_at.is_(None),
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def get_for_user_detailed(
         self, subscription_id: uuid.UUID, user_id: uuid.UUID
@@ -81,4 +82,4 @@ class ApplicationSubscriptionRepository(BaseRepository[Subscription]):
             )
             .options(*_RELATIONS)
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()

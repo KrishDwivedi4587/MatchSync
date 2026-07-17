@@ -7,6 +7,7 @@ is used **unchanged**.
 
 from __future__ import annotations
 
+import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.services.calendar_service import CalendarService
@@ -86,7 +87,7 @@ def build_metadata_service(session: AsyncSession) -> MetadataService:
     )
 
 
-def build_sports_service(session: AsyncSession, redis) -> SportsService:
+def build_sports_service(session: AsyncSession, redis: aioredis.Redis) -> SportsService:
     return SportsService(
         get_sports_registry(get_settings()),
         RedisCache(redis),
@@ -97,7 +98,9 @@ def build_sports_service(session: AsyncSession, redis) -> SportsService:
     )
 
 
-def build_ingestion_service(session: AsyncSession, redis) -> FixtureIngestionService:
+def build_ingestion_service(
+    session: AsyncSession, redis: aioredis.Redis
+) -> FixtureIngestionService:
     settings = get_settings()
     return FixtureIngestionService(
         session,

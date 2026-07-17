@@ -17,6 +17,7 @@ Keys:
 
 from __future__ import annotations
 
+import builtins
 import json
 import uuid
 from collections.abc import Sequence
@@ -103,7 +104,9 @@ class JobStore:
             jobs = [j for j in jobs if j.type in types]
         return jobs[:limit]
 
-    async def list_dead_letter(self, *, limit: int = 50) -> list[Job]:
+    # ``builtins.list``: the ``list`` method above shadows the builtin in this
+    # class body's annotation scope.
+    async def list_dead_letter(self, *, limit: int = 50) -> builtins.list[Job]:
         ids = await self._redis.zrevrange(DEAD_LETTER_KEY, 0, max(limit - 1, 0))
         return await self._load_many(ids)
 
@@ -114,7 +117,7 @@ class JobStore:
             counts[job.state.value] = counts.get(job.state.value, 0) + 1
         return counts
 
-    async def list_stuck(self, *, older_than_seconds: int) -> list[Job]:
+    async def list_stuck(self, *, older_than_seconds: int) -> builtins.list[Job]:
         """RUNNING jobs whose worker died without transitioning them."""
         cutoff = datetime.now(UTC).timestamp() - older_than_seconds
         ids = await self._redis.zrevrange(INDEX_KEY, 0, 999)

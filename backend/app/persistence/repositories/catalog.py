@@ -5,13 +5,13 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import ColumnElement, SQLColumnExpression, func, insert, select
 
 from app.persistence.models.catalog import Competition, Sport, Team, team_competition
 from app.persistence.repositories.base import BaseRepository
 
 
-def _ilike(column, term: str):
+def _ilike(column: SQLColumnExpression[str], term: str) -> ColumnElement[bool]:
     """Portable case-insensitive contains (Postgres + SQLite)."""
     return func.lower(column).like(f"%{term.lower()}%")
 
@@ -20,7 +20,7 @@ class SportRepository(BaseRepository[Sport]):
     model = Sport
 
     async def get_by_key(self, key: str) -> Sport | None:
-        return await self.session.scalar(select(Sport).where(Sport.key == key))
+        return (await self.session.scalars(select(Sport).where(Sport.key == key))).first()
 
     async def list_active(self) -> Sequence[Sport]:
         stmt = select(Sport).where(Sport.is_active.is_(True)).order_by(Sport.display_order)
@@ -37,7 +37,7 @@ class CompetitionRepository(BaseRepository[Competition]):
             Competition.sport_id == sport_id,
             Competition.provider_competition_id == provider_competition_id,
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_for_sport(self, sport_id: uuid.UUID) -> Sequence[Competition]:
         stmt = select(Competition).where(
@@ -64,7 +64,7 @@ class TeamRepository(BaseRepository[Team]):
             Team.sport_id == sport_id,
             Team.provider_team_id == provider_team_id,
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_for_sport(self, sport_id: uuid.UUID) -> Sequence[Team]:
         stmt = select(Team).where(

@@ -16,11 +16,14 @@ from app.exceptions.base import (
 )
 
 # Provider-generic failures live in exceptions/provider.py (shared with the
-# sports platform and the resilient HTTP client). Re-exported here so existing
-# calendar imports keep working.
-from app.exceptions.provider import (  # noqa: F401
-    ProviderUnavailableError,
-    RateLimitError,
+# sports platform and the resilient HTTP client). The import-as-name aliases
+# mark them as *explicit* re-exports (mypy strict no-implicit-reexport), so
+# existing calendar imports keep working.
+from app.exceptions.provider import (
+    ProviderUnavailableError as ProviderUnavailableError,
+)
+from app.exceptions.provider import (
+    RateLimitError as RateLimitError,
 )
 
 

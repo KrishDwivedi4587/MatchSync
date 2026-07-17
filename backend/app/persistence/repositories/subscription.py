@@ -56,7 +56,7 @@ class CalendarEventRepository(BaseRepository[CalendarEvent]):
             CalendarEvent.subscription_id == subscription_id,
             CalendarEvent.fixture_id == fixture_id,
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_for_subscription(self, subscription_id: uuid.UUID) -> Sequence[CalendarEvent]:
         stmt = select(CalendarEvent).where(

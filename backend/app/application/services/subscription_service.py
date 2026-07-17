@@ -14,6 +14,7 @@ Nothing here re-implements sync, calendar, or provider logic.
 
 from __future__ import annotations
 
+import builtins
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,6 +26,7 @@ from app.core.logging import get_logger
 from app.domain.value_objects.enums import SubscriptionStatus, SubscriptionType
 from app.exceptions.base import ConflictError, NotFoundError, ValidationAppError
 from app.persistence.models.subscription import Subscription
+from app.persistence.models.user import User
 from app.persistence.repositories.application import ApplicationSubscriptionRepository
 from app.persistence.repositories.catalog import (
     CompetitionRepository,
@@ -79,17 +81,17 @@ class SubscriptionService:
         self._teams = teams
 
     # --- reads ------------------------------------------------------------
-    async def list(self, user) -> list[Subscription]:
+    async def list(self, user: User) -> list[Subscription]:
         return list(await self._subscriptions.list_for_user_detailed(user.id))
 
-    async def get(self, user, subscription_id: uuid.UUID) -> Subscription:
+    async def get(self, user: User, subscription_id: uuid.UUID) -> Subscription:
         subscription = await self._subscriptions.get_for_user_detailed(subscription_id, user.id)
         if subscription is None:
             raise SubscriptionNotFoundError()
         return subscription
 
     # --- create -----------------------------------------------------------
-    async def create(self, user, data: SubscriptionInput) -> Subscription:
+    async def create(self, user: User, data: SubscriptionInput) -> Subscription:
         resolved = await self._resolve(user, data)
 
         # Explicit duplicate check (the DB unique constraint does not fire on
@@ -134,7 +136,11 @@ class SubscriptionService:
         )
         return await self.get(user, subscription.id)
 
-    async def bulk_create(self, user, items: list[SubscriptionInput]) -> list[Subscription]:
+    # ``builtins.list``: the ``list`` method above shadows the builtin in
+    # this class body's later def-signature annotations.
+    async def bulk_create(
+        self, user: User, items: builtins.list[SubscriptionInput]
+    ) -> builtins.list[Subscription]:
         """Best-effort bulk subscribe. Duplicates are skipped, not fatal."""
         created: list[Subscription] = []
         for item in items:
@@ -147,7 +153,7 @@ class SubscriptionService:
     # --- update / lifecycle ------------------------------------------------
     async def update(
         self,
-        user,
+        user: User,
         subscription_id: uuid.UUID,
         *,
         sync_frequency_minutes: int | None = None,
@@ -165,14 +171,14 @@ class SubscriptionService:
         logger.info("subscription.updated", subscription_id=str(subscription_id))
         return await self.get(user, subscription_id)
 
-    async def pause(self, user, subscription_id: uuid.UUID) -> Subscription:
+    async def pause(self, user: User, subscription_id: uuid.UUID) -> Subscription:
         subscription = await self.get(user, subscription_id)
         subscription.status = SubscriptionStatus.PAUSED
         await self._session.commit()
         logger.info("subscription.paused", subscription_id=str(subscription_id))
         return await self.get(user, subscription_id)
 
-    async def resume(self, user, subscription_id: uuid.UUID) -> Subscription:
+    async def resume(self, user: User, subscription_id: uuid.UUID) -> Subscription:
         subscription = await self.get(user, subscription_id)
         subscription.status = SubscriptionStatus.ACTIVE
         subscription.next_sync_at = datetime.now(UTC)  # catch up promptly
@@ -180,7 +186,7 @@ class SubscriptionService:
         logger.info("subscription.resumed", subscription_id=str(subscription_id))
         return await self.get(user, subscription_id)
 
-    async def delete(self, user, subscription_id: uuid.UUID) -> None:
+    async def delete(self, user: User, subscription_id: uuid.UUID) -> None:
         """Soft delete. Its calendar events are removed by the next sync run:
         the engine already deletes events whose subscription no longer covers the
         fixture (Stage 8 prune)."""
@@ -189,7 +195,7 @@ class SubscriptionService:
         await self._session.commit()
         logger.info("subscription.deleted", subscription_id=str(subscription_id))
 
-    async def bulk_delete(self, user, ids: list[uuid.UUID]) -> int:
+    async def bulk_delete(self, user: User, ids: builtins.list[uuid.UUID]) -> int:
         removed = 0
         for subscription_id in ids:
             try:
@@ -207,7 +213,7 @@ class SubscriptionService:
         competition_id: uuid.UUID | None
         team_id: uuid.UUID | None
 
-    async def _resolve(self, user, data: SubscriptionInput) -> SubscriptionService._Resolved:
+    async def _resolve(self, user: User, data: SubscriptionInput) -> SubscriptionService._Resolved:
         # Calendar must belong to the user.
         owned = {c.id for c in await self._calendars.list_for_user(user.id)}
         if data.calendar_id not in owned:

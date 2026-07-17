@@ -15,4 +15,4 @@ class UserPreferencesRepository(BaseRepository[UserPreferences]):
 
     async def get_for_user(self, user_id: uuid.UUID) -> UserPreferences | None:
         stmt = select(UserPreferences).where(UserPreferences.user_id == user_id)
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()

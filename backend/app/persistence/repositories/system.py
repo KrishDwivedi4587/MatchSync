@@ -19,7 +19,9 @@ class SchedulerJobRepository(BaseRepository[SchedulerJob]):
     model = SchedulerJob
 
     async def get_by_key(self, key: str) -> SchedulerJob | None:
-        return await self.session.scalar(select(SchedulerJob).where(SchedulerJob.key == key))
+        return (
+            await self.session.scalars(select(SchedulerJob).where(SchedulerJob.key == key))
+        ).first()
 
 
 class ProviderMetadataRepository(BaseRepository[ProviderMetadata]):
@@ -27,7 +29,7 @@ class ProviderMetadataRepository(BaseRepository[ProviderMetadata]):
 
     async def get_by_key(self, key: str) -> ProviderMetadata | None:
         stmt = select(ProviderMetadata).where(ProviderMetadata.key == key)
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_by_type(self, provider_type: ProviderType) -> Sequence[ProviderMetadata]:
         stmt = select(ProviderMetadata).where(ProviderMetadata.provider_type == provider_type)

@@ -62,7 +62,9 @@ def _scope_filter(subscription: Subscription) -> Any:
 class SyncFixtureRepository(BaseRepository[Fixture]):
     model = Fixture
 
-    def _base(self, subscription: Subscription, start: datetime, end: datetime) -> Select:
+    def _base(
+        self, subscription: Subscription, start: datetime, end: datetime
+    ) -> Select[tuple[Fixture]]:
         return (
             select(Fixture)
             .join(Competition, Fixture.competition_id == Competition.id)
@@ -284,7 +286,7 @@ class SyncSubscriptionRepository(BaseRepository[Subscription]):
             Subscription.user_id == user_id,
             Subscription.deleted_at.is_(None),
         )
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).first()
 
     async def list_active_for_user(self, user_id: uuid.UUID) -> Sequence[Subscription]:
         from app.domain.value_objects.enums import SubscriptionStatus

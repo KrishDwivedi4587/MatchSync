@@ -28,6 +28,7 @@ from app.application.services.fixture_query_service import FixtureQueryService
 from app.domain.fixtures.report import ImportReport
 from app.domain.value_objects.enums import FixtureStatus
 from app.domain.value_objects.time_window import TimeWindow
+from app.persistence.models.catalog import Team
 from app.persistence.models.fixture import Fixture
 from app.persistence.models.ingestion import ImportRun
 from app.schemas.fixtures import (
@@ -64,7 +65,7 @@ def _window(
     return TimeWindow(start=start, end=end)
 
 
-def _team_out(team) -> TeamRefOut | None:
+def _team_out(team: Team | None) -> TeamRefOut | None:
     if team is None:
         return None
     return TeamRefOut(

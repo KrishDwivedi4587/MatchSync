@@ -20,6 +20,7 @@ models — it stores nothing.
 
 from __future__ import annotations
 
+from app.application.services.metadata_service import MetadataService
 from app.core.logging import get_logger
 from app.domain.ports.sports_provider import (
     Competition,
@@ -31,6 +32,7 @@ from app.domain.ports.sports_provider import (
     SearchHit,
     SearchResults,
     Sport,
+    SportsProvider,
     Standing,
     Team,
 )
@@ -45,6 +47,7 @@ from app.domain.sports.codec import (
 from app.domain.value_objects.time_window import TimeWindow
 from app.exceptions.sports import CapabilityNotSupportedError
 from app.infrastructure.cache import Cache, cache_key, cached_json
+from app.infrastructure.providers.registry import SportsProviderRegistry
 from app.persistence.repositories.catalog import (
     CompetitionRepository,
     SportRepository,
@@ -57,12 +60,12 @@ logger = get_logger(__name__)
 class SportsService:
     def __init__(
         self,
-        registry,
+        registry: SportsProviderRegistry,
         cache: Cache,
         sports: SportRepository,
         competitions: CompetitionRepository,
         teams: TeamRepository,
-        metadata_service,
+        metadata_service: MetadataService,
     ) -> None:
         self._registry = registry
         self._cache = cache
@@ -88,7 +91,7 @@ class SportsService:
         for provider in self._registry.all():
             key = cache_key(provider.key, "sports")
 
-            async def load(p=provider):
+            async def load(p: SportsProvider = provider) -> list[dict[str, object]]:
                 return [sport_to_dict(s) for s in await p.list_sports()]
 
             payload = await cached_json(
@@ -101,7 +104,7 @@ class SportsService:
         provider = self._registry.get_for_sport(sport_key)
         key = cache_key(provider.key, sport_key, "competitions")
 
-        async def load():
+        async def load() -> list[dict[str, object]]:
             return [competition_to_dict(c) for c in await provider.list_competitions(sport_key)]
 
         payload = await cached_json(
@@ -113,7 +116,7 @@ class SportsService:
         provider = self._registry.get_for_sport(sport_key)
         key = cache_key(provider.key, sport_key, "competition", external_id)
 
-        async def load():
+        async def load() -> dict[str, object]:
             return competition_to_dict(await provider.get_competition(external_id))
 
         return competition_from_dict(
@@ -126,7 +129,7 @@ class SportsService:
         provider = self._registry.get_for_sport(sport_key)
         key = cache_key(provider.key, sport_key, "teams", competition_id)
 
-        async def load():
+        async def load() -> list[dict[str, object]]:
             return [team_to_dict(t) for t in await provider.list_teams(competition_id)]
 
         payload = await cached_json(
@@ -138,7 +141,7 @@ class SportsService:
         provider = self._registry.get_for_sport(sport_key)
         key = cache_key(provider.key, sport_key, "team", external_id)
 
-        async def load():
+        async def load() -> dict[str, object]:
             return team_to_dict(await provider.get_team(external_id))
 
         return team_from_dict(

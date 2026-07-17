@@ -28,10 +28,14 @@ from app.domain.ports.sports_provider import (
     SportsProvider,
 )
 from app.domain.ports.sports_provider import (
+    Sport as SportDTO,
+)
+from app.domain.ports.sports_provider import (
     Team as TeamDTO,
 )
 from app.domain.value_objects.enums import ProviderStatus
 from app.exceptions.base import AppError
+from app.infrastructure.providers.registry import SportsProviderRegistry
 from app.persistence.models.catalog import Competition, Sport, Team
 from app.persistence.repositories.catalog import (
     CompetitionRepository,
@@ -47,7 +51,7 @@ class MetadataService:
     def __init__(
         self,
         session: AsyncSession,
-        registry,
+        registry: SportsProviderRegistry,
         sports: SportRepository,
         competitions: CompetitionRepository,
         teams: TeamRepository,
@@ -125,7 +129,7 @@ class MetadataService:
         )
 
     # --- upserts (keyed on the Stage 3 unique constraints) -----------------
-    async def _upsert_sport(self, dto) -> Sport:
+    async def _upsert_sport(self, dto: SportDTO) -> Sport:
         sport = await self._sports.get_by_key(dto.key)
         if sport is None:
             return await self._sports.add(

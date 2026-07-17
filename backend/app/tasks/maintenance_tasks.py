@@ -43,7 +43,9 @@ def _self_enqueue(job_type: JobType, payload: dict[str, Any] | None = None) -> s
 
 
 @celery_app.task(bind=True, name="orchestration.metadata_refresh", acks_late=True)
-def metadata_refresh(self: Task, job_id: str | None = None) -> dict[str, Any]:
+def metadata_refresh(
+    self: Task[[str | None], dict[str, Any]], job_id: str | None = None
+) -> dict[str, Any]:
     """Beat calls this with no argument; it enqueues a real job and returns."""
     if job_id is None:
         return {"enqueued": _self_enqueue(JobType.METADATA_REFRESH)}
@@ -51,7 +53,9 @@ def metadata_refresh(self: Task, job_id: str | None = None) -> dict[str, Any]:
 
 
 @celery_app.task(bind=True, name="orchestration.fixture_import", acks_late=True)
-def fixture_import(self: Task, job_id: str | None = None) -> dict[str, Any]:
+def fixture_import(
+    self: Task[[str | None], dict[str, Any]], job_id: str | None = None
+) -> dict[str, Any]:
     if job_id is None:
         registry_sports = _all_sport_keys()
         return {
@@ -69,7 +73,9 @@ def _all_sport_keys() -> list[str]:
 
 
 @celery_app.task(bind=True, name="orchestration.health_check")
-def health_check(self: Task, job_id: str | None = None) -> dict[str, Any]:
+def health_check(
+    self: Task[[str | None], dict[str, Any]], job_id: str | None = None
+) -> dict[str, Any]:
     """Scheduler liveness beacon. /scheduler/status reads the key it writes.
 
     Accepts an optional ``job_id`` because the dispatcher maps
@@ -114,7 +120,7 @@ def detect_stuck_jobs() -> dict[str, int]:
 
 
 @celery_app.task(bind=True, name="orchestration.cleanup")
-def cleanup(self: Task, job_id: str | None = None) -> dict[str, Any]:
+def cleanup(self: Task[[str | None], dict[str, Any]], job_id: str | None = None) -> dict[str, Any]:
     """Drop job index entries whose documents have already expired.
 
     ``job_id`` tolerance mirrors ``health_check`` (see its docstring).

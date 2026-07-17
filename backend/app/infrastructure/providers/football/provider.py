@@ -18,6 +18,8 @@ All vendor vocabulary dies in this file.
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.domain.ports.sports_provider import (
     Competition,
     Fixture,
@@ -85,7 +87,7 @@ class FootballProvider(BaseHttpSportsProvider):
             ProviderCapability.TEAM_LOGOS,
         }
     )
-    supported_sports = (SPORT_KEY,)
+    supported_sports: tuple[str, ...] = (SPORT_KEY,)
 
     # --- sports ------------------------------------------------------------
     async def list_sports(self) -> list[Sport]:
@@ -96,7 +98,7 @@ class FootballProvider(BaseHttpSportsProvider):
         ]
 
     # --- competitions ------------------------------------------------------
-    def _to_competition(self, raw: dict) -> Competition:
+    def _to_competition(self, raw: dict[str, Any]) -> Competition:
         # The vendor's stable code ("PL") is preferred over the numeric id: it is
         # what every other endpoint accepts as a path parameter.
         code = optional(raw, "code") or require(raw, "id", context="competition")
@@ -141,7 +143,7 @@ class FootballProvider(BaseHttpSportsProvider):
         return self._to_competition(payload)
 
     # --- teams -------------------------------------------------------------
-    def _to_team(self, raw: dict) -> Team:
+    def _to_team(self, raw: dict[str, Any]) -> Team:
         return Team(
             external_id=normalize_external_id(require(raw, "id", context="team")),
             name=normalize_name(require(raw, "name", context="team")),
@@ -164,7 +166,7 @@ class FootballProvider(BaseHttpSportsProvider):
         return self._to_team(payload)
 
     # --- fixtures (fetch + normalize only; no persistence, no sync) ---------
-    def _to_fixture(self, competition_id: str, raw: dict) -> Fixture:
+    def _to_fixture(self, competition_id: str, raw: dict[str, Any]) -> Fixture:
         home = raw.get("homeTeam") or {}
         away = raw.get("awayTeam") or {}
         participants = tuple(
@@ -210,11 +212,11 @@ class FootballProvider(BaseHttpSportsProvider):
         self.require_capability(ProviderCapability.STANDINGS)
         payload = await self._get(f"/competitions/{competition_id}/standings")
 
-        rows: list[dict] = []
+        rows: list[dict[str, Any]] = []
         for table in as_list(payload, "standings"):
             rows.extend(as_list(table, "table"))
 
-        def to_standing(raw: dict) -> Standing:
+        def to_standing(raw: dict[str, Any]) -> Standing:
             team = raw.get("team") or {}
             return Standing(
                 competition_id=competition_id,

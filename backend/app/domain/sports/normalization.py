@@ -213,7 +213,7 @@ def normalize_venue(
 # --------------------------------------------------------------------------
 # Safe field access (schema-change tolerance)
 # --------------------------------------------------------------------------
-def require(payload: dict, key: str, *, context: str = "record") -> Any:
+def require(payload: object, key: str, *, context: str = "record") -> Any:
     """Fetch a required field, raising NormalizationError if absent.
 
     Callers catch this per-item so one malformed record never fails a batch.
@@ -223,7 +223,7 @@ def require(payload: dict, key: str, *, context: str = "record") -> Any:
     return payload[key]
 
 
-def optional(payload: dict, *keys: str) -> Any:
+def optional(payload: object, *keys: str) -> Any:
     """Fetch the first present key from a chain of aliases (schema drift)."""
     if not isinstance(payload, dict):
         return None
